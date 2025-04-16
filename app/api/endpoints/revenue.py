@@ -9,7 +9,7 @@ router = APIRouter()
 
 @router.get("/revenue/", response_model=list[Revenue])
 def get_all_revenue(db: Session = Depends(get_db)):
-    return db.query(Revenue).order_by(Revenue.month).all()
+    return db.query(RevenueModel).order_by(RevenueModel.month).all()
 
 
 @router.get("/revenue/{month}", response_model=Revenue)
