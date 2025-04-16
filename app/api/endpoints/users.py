@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.user import User as UserModel
-from app.schemas.user import UserCreate, User
+from app.schemas.user import UserCreate, UserUpdate, User
 from app.crud import user as crud_user
 
 router = APIRouter()
@@ -25,3 +25,9 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Email already registered")
     return crud_user.create_user(db=db, user=user)
 
+@router.patch("/users/{user_id}", response_model=User)
+def update_user(user_id: str, user: UserUpdate, db: Session = Depends(get_db)):
+    updated_user = crud_user.update_user(db=db, user_id=user_id, user_data=user)
+    if not updated_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return updated_user

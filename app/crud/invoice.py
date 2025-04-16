@@ -19,7 +19,7 @@ def update_invoice(db: Session, invoice_id: str, invoice_data: InvoiceUpdate):
     if not db_invoice:
         return None
 
-    update_data = invoice_data.dict(exclude_unset=True)
+    update_data = invoice_data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_invoice, key, value)
 

@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from uuid import UUID, uuid4
+from typing import Optional
 
 class UserBase(BaseModel):
     name: str
@@ -11,5 +12,9 @@ class UserCreate(UserBase):
 class User(UserBase):
     id: UUID = Field(default_factory=uuid4)
 
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+
     class Config:
-        orm_mode = True
+        from_attributes = True
