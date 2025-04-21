@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from sqlalchemy.dialects import postgresql
 from app.core.database import get_db
 from app.models.invoice import Invoice as InvoiceModel
 from app.models.customer import Customer as CustomerModel
@@ -9,10 +10,69 @@ from app.crud import invoice as crud_invoice
 
 router = APIRouter()
 
-# Récupère toutes les factures.
-@router.get("/invoices/", response_model=list[Invoice])
-def get_all_invoices(db: Session = Depends(get_db)):
-    return db.query(InvoiceModel).all()
+ITEMS_PER_PAGE = 10
+
+@router.get("/invoices", response_model=list[InvoiceLatest])
+def get_all_invoices(
+    db: Session = Depends(get_db),
+    query: str = Query("", alias="query"),
+    page: int = Query(1, alias="page"),
+    limit: int = Query(ITEMS_PER_PAGE, alias="limit")
+):
+    # Calculer l'offset
+    offset = (page - 1) * limit
+
+    # Construire la requête avec filtre, limite et offset
+    invoices_query = db.query(InvoiceModel, CustomerModel)\
+        .join(CustomerModel, InvoiceModel.customer_id == CustomerModel.id)\
+        .filter(
+            (CustomerModel.name.ilike(f"%{query}%")) |
+            (CustomerModel.email.ilike(f"%{query}%")) |
+            (InvoiceModel.status.ilike(f"%{query}%"))
+        )\
+        .order_by(InvoiceModel.date.desc(), InvoiceModel.id.desc())\
+        .limit(limit)\
+        .offset(offset)
+
+    # Récupérer les résultats
+    all_invoices = invoices_query.all()
+
+    # Vérifier si aucun résultat n'est trouvé
+    if not all_invoices:
+        return []
+
+    # Retourner les résultats formatés
+    return [
+        {
+            "id": invoice.id,
+            "customer_id": invoice.customer_id,
+            "status": invoice.status,
+            "amount": invoice.amount,
+            "name": customer.name,
+            "email": customer.email,
+            "image_url": customer.image_url,
+            "date": invoice.date.isoformat(),
+        }
+        for invoice, customer in all_invoices
+    ]
+
+# Récupère le nombre total de pages pour la pagination
+@router.get("/invoices/pages", response_model=int)
+def get_invoices_pages(
+    db: Session = Depends(get_db),
+    query: str = Query("", alias="query")
+):
+    total_items = db.query(InvoiceModel)\
+        .join(CustomerModel, InvoiceModel.customer_id == CustomerModel.id)\
+        .filter(
+            (CustomerModel.name.ilike(f"%{query}%")) |
+            (CustomerModel.email.ilike(f"%{query}%")) |
+            (InvoiceModel.status.ilike(f"%{query}%")) |
+            (func.cast(InvoiceModel.amount, str).ilike(f"%{query}%"))
+        ).count()
+
+    total_pages = (total_items + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
+    return total_pages
 
 # Récupère le nombre total de factures.
 @router.get("/invoices/count", response_model=dict)
