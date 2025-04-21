@@ -12,6 +12,7 @@ router = APIRouter()
 
 ITEMS_PER_PAGE = 10
 
+# Récupère toutes les factures
 @router.get("/invoices", response_model=list[InvoiceLatest])
 def get_all_invoices(
     db: Session = Depends(get_db),
