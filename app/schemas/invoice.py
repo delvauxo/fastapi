@@ -22,6 +22,10 @@ class InvoiceLatest(Invoice):
     email: str
     image_url: str
 
+# Nouveau schéma pour l'endpoint "invoices/pages"
+class InvoicePagesResponse(BaseModel):
+    totalPages: int
+
 class InvoiceUpdate(BaseModel):
     customer_id: Optional[UUID] = None
     amount: Optional[int] = None

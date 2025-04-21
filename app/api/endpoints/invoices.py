@@ -1,16 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
+from sqlalchemy import func, String
 from sqlalchemy.orm import Session
-from sqlalchemy.dialects import postgresql
 from app.core.database import get_db
 from app.models.invoice import Invoice as InvoiceModel
 from app.models.customer import Customer as CustomerModel
-from app.schemas.invoice import InvoiceCreate, InvoiceUpdate, InvoiceLatest, Invoice
+from app.schemas.invoice import InvoiceCreate, InvoiceUpdate, InvoiceLatest, InvoicePagesResponse, Invoice
 from app.crud import invoice as crud_invoice
 
 router = APIRouter()
 
-ITEMS_PER_PAGE = 10
+# Doit correspondre au nombre d'item par page côté frond pour ne pas créer de désalignement.
+ITEMS_PER_PAGE = 6 
 
 # Récupère toutes les factures
 @router.get("/invoices", response_model=list[InvoiceLatest])
@@ -29,7 +29,8 @@ def get_all_invoices(
         .filter(
             (CustomerModel.name.ilike(f"%{query}%")) |
             (CustomerModel.email.ilike(f"%{query}%")) |
-            (InvoiceModel.status.ilike(f"%{query}%"))
+            (InvoiceModel.status.ilike(f"%{query}%")) |
+            (func.cast(InvoiceModel.amount, String).ilike(f"%{query}%"))
         )\
         .order_by(InvoiceModel.date.desc(), InvoiceModel.id.desc())\
         .limit(limit)\
@@ -57,8 +58,8 @@ def get_all_invoices(
         for invoice, customer in all_invoices
     ]
 
-# Récupère le nombre total de pages pour la pagination
-@router.get("/invoices/pages", response_model=int)
+# Récupère le nombre total de pages.
+@router.get("/invoices/pages", response_model=InvoicePagesResponse)
 def get_invoices_pages(
     db: Session = Depends(get_db),
     query: str = Query("", alias="query")
@@ -69,11 +70,12 @@ def get_invoices_pages(
             (CustomerModel.name.ilike(f"%{query}%")) |
             (CustomerModel.email.ilike(f"%{query}%")) |
             (InvoiceModel.status.ilike(f"%{query}%")) |
-            (func.cast(InvoiceModel.amount, str).ilike(f"%{query}%"))
+            (func.cast(InvoiceModel.amount, String).ilike(f"%{query}%"))
         ).count()
 
     total_pages = (total_items + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
-    return total_pages
+
+    return InvoicePagesResponse(totalPages=total_pages)
 
 # Récupère le nombre total de factures.
 @router.get("/invoices/count", response_model=dict)
