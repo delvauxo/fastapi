@@ -7,21 +7,24 @@ from uuid import UUID
 from app.core.database import get_db
 from app.models.customer import Customer as CustomerModel
 from app.models.invoice import Invoice as InvoiceModel
-from app.schemas.customer import CustomerCreate, CustomerUpdate, Customer
+from app.schemas.customer import CustomerCreate, CustomerUpdate, CustomerPagesResponse, Customer
 from app.crud import customer as crud_customer
 
 router = APIRouter()
 
+# Doit correspondre au nombre d'item par page côté front pour ne pas créer de désalignement.
 ITEMS_PER_PAGE = 6
 
+# Récupère tous les clients.
 @router.get("/customers", response_model=list)
 def get_customers(
     query: str = Query("", alias="query"),
     page: int = Query(1, alias="page"),
     db: Session = Depends(get_db),
+    limit: int = Query(ITEMS_PER_PAGE, alias="limit", le=50)
 ):
     # Calcul de l'offset pour la pagination.
-    offset = (page - 1) * ITEMS_PER_PAGE
+    offset = (page - 1) * limit
 
     # Construire la requête principale avec les filtres.
     customers_query = db.query(
@@ -40,7 +43,7 @@ def get_customers(
      )\
      .order_by(CustomerModel.name.asc())\
      .offset(offset)\
-     .limit(ITEMS_PER_PAGE)
+     .limit(limit)
 
     # Exécuter la requête.
     all_customers = customers_query.all()
@@ -62,6 +65,22 @@ def get_customers(
         }
         for customer in all_customers
     ]
+
+# Récupère le nombre total de pages.
+@router.get("/customers/pages", response_model=CustomerPagesResponse)
+def get_customers_pages(
+    db: Session = Depends(get_db),
+    query: str = Query("", alias="query")
+):
+    total_items = db.query(CustomerModel)\
+        .filter(
+            (CustomerModel.name.ilike(f"%{query}%")) |
+            (CustomerModel.email.ilike(f"%{query}%"))
+        ).count()
+
+    total_pages = (total_items + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
+
+    return CustomerPagesResponse(totalPages=total_pages)
 
 # Récupère la liste de tous les clients.
 @router.get("/customers/all", response_model=List[Customer])

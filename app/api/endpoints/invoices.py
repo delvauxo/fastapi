@@ -21,7 +21,7 @@ def get_all_invoices(
     db: Session = Depends(get_db),
     query: str = Query("", alias="query"),
     page: int = Query(1, alias="page"),
-    limit: int = Query(ITEMS_PER_PAGE, alias="limit")
+    limit: int = Query(ITEMS_PER_PAGE, alias="limit", le=50)
 ):
     # Calculer l'offset
     offset = (page - 1) * limit

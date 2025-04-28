@@ -13,11 +13,9 @@ class CustomerCreate(CustomerBase):
 class Customer(CustomerBase):
     id: UUID = Field(default_factory=uuid4)
 
-# Nouveau modèle pour renvoyer les agrégations liées aux factures
-class CustomerAggregated(Customer):
-    total_invoices: int
-    total_pending: float
-    total_paid: float
+# Nouveau schéma pour l'endpoint "customers/pages"
+class CustomerPagesResponse(BaseModel):
+    totalPages: int
 
 class CustomerUpdate(BaseModel):
     name: Optional[str] = None
