@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func, String
+from sqlalchemy import func, String, case, cast, or_
 from typing import List, Optional
 from uuid import UUID 
 
@@ -74,7 +74,7 @@ def get_all_customers(db: Session = Depends(get_db)):
 def get_customer_count(query: Optional[str] = "", db: Session = Depends(get_db)):
     q = db.query(
         CustomerModel.id
-    ).outerjoin(Invoice, Invoice.customer_id == CustomerModel.id
+    ).outerjoin(InvoiceModel, InvoiceModel.customer_id == CustomerModel.id
     ).group_by(
         CustomerModel.id,
         CustomerModel.name,
@@ -86,9 +86,9 @@ def get_customer_count(query: Optional[str] = "", db: Session = Depends(get_db))
         filter_condition = or_(
             CustomerModel.name.ilike(f"%{query}%"),
             CustomerModel.email.ilike(f"%{query}%"),
-            cast(func.count(Invoice.id), String).ilike(f"%{query}%"),
-            cast(func.coalesce(func.sum(case((Invoice.status == 'pending', Invoice.amount), else_=0)), 0), String).ilike(f"%{query}%"),
-            cast(func.coalesce(func.sum(case((Invoice.status == 'paid', Invoice.amount), else_=0)), 0), String).ilike(f"%{query}%")
+            cast(func.count(InvoiceModel.id), String).ilike(f"%{query}%"),
+            cast(func.coalesce(func.sum(case((InvoiceModel.status == 'pending', InvoiceModel.amount), else_=0)), 0), String).ilike(f"%{query}%"),
+            cast(func.coalesce(func.sum(case((InvoiceModel.status == 'paid', InvoiceModel.amount), else_=0)), 0), String).ilike(f"%{query}%")
         )
         q = q.having(filter_condition)
     
