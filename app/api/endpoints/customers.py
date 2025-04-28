@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func, String, case, cast, or_
+from sqlalchemy import func
 from typing import List, Optional
 from uuid import UUID 
 
@@ -20,10 +20,10 @@ def get_customers(
     page: int = Query(1, alias="page"),
     db: Session = Depends(get_db),
 ):
-    # Calcul de l'offset pour la pagination
+    # Calcul de l'offset pour la pagination.
     offset = (page - 1) * ITEMS_PER_PAGE
 
-    # Construire la requête principale avec les filtres
+    # Construire la requête principale avec les filtres.
     customers_query = db.query(
         CustomerModel.id,
         CustomerModel.name,
@@ -42,14 +42,14 @@ def get_customers(
      .offset(offset)\
      .limit(ITEMS_PER_PAGE)
 
-    # Exécuter la requête
+    # Exécuter la requête.
     all_customers = customers_query.all()
 
-    # Vérifier si aucun client n'est trouvé
+    # Vérifier si aucun client n'est trouvé.
     if not all_customers:
         return []
 
-    # Retourner les résultats
+    # Retourner les résultats.
     return [
         {
             "id": customer.id,
@@ -73,17 +73,17 @@ def get_all_customers(db: Session = Depends(get_db)):
 @router.get("/customers/count", response_model=dict)
 def get_customer_count(query: Optional[str] = "", db: Session = Depends(get_db)):
     try:
-        # Construire la requête principale
+        # Construire la requête principale.
         base_query = db.query(CustomerModel.id).distinct()
 
-        # Appliquer les filtres si la query est présente
+        # Appliquer les filtres si la query est présente.
         if query:
             base_query = base_query.filter(
                 (CustomerModel.name.ilike(f"%{query}%")) |
                 (CustomerModel.email.ilike(f"%{query}%"))
             )
         
-        # Compter le nombre total de clients correspondants
+        # Compter le nombre total de clients correspondants.
         count = base_query.count()
         return {"count": count}
     except Exception as e:
@@ -101,9 +101,14 @@ def get_one_customer(customer_id: UUID, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 # Crée un nouveau client.
-@router.post("/customers/", response_model=Customer)
+@router.post("/customers", response_model=Customer)
 def create_customer(customer: CustomerCreate, db: Session = Depends(get_db)):
-    return crud_customer.create_customer(db=db, customer=customer)
+    try:
+        # Appeler la fonction CRUD
+        return crud_customer.create_customer(db=db, customer=customer)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 # Met à jour un client existant.
 @router.patch("/customers/{customer_id}", response_model=Customer)

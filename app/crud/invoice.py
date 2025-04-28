@@ -3,6 +3,7 @@ from app.models.invoice import Invoice
 from app.schemas.invoice import InvoiceCreate, InvoiceUpdate
 
 def create_invoice(db: Session, invoice: InvoiceCreate):
+    # Créer une nouvelle facture
     db_invoice = Invoice(
         customer_id=invoice.customer_id,
         amount=invoice.amount,

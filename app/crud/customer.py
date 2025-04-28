@@ -3,6 +3,12 @@ from app.models.customer import Customer
 from app.schemas.customer import CustomerCreate, CustomerUpdate
 
 def create_customer(db: Session, customer: CustomerCreate):
+    # Vérifier si l'email existe déjà.
+    existing_customer = db.query(Customer).filter(Customer.email == customer.email).first()
+    if existing_customer:
+        raise ValueError("Email already exists.")
+
+    # Créer le client.
     db_customer = Customer(
         name=customer.name, 
         email=customer.email, 

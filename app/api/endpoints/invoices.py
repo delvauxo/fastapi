@@ -12,10 +12,10 @@ from app.crud import invoice as crud_invoice
 
 router = APIRouter()
 
-# Doit correspondre au nombre d'item par page côté frond pour ne pas créer de désalignement.
+# Doit correspondre au nombre d'item par page côté front pour ne pas créer de désalignement.
 ITEMS_PER_PAGE = 6 
 
-# Récupère toutes les factures
+# Récupère toutes les factures.
 @router.get("/invoices", response_model=list[InvoiceLatest])
 def get_all_invoices(
     db: Session = Depends(get_db),
@@ -26,7 +26,7 @@ def get_all_invoices(
     # Calculer l'offset
     offset = (page - 1) * limit
 
-    # Construire la requête avec filtre, limite et offset
+    # Construire la requête avec filtre, limite et offset.
     invoices_query = db.query(InvoiceModel, CustomerModel)\
         .join(CustomerModel, InvoiceModel.customer_id == CustomerModel.id)\
         .filter(
@@ -39,14 +39,14 @@ def get_all_invoices(
         .limit(limit)\
         .offset(offset)
 
-    # Récupérer les résultats
+    # Récupérer les résultats.
     all_invoices = invoices_query.all()
 
-    # Vérifier si aucun résultat n'est trouvé
+    # Vérifier si aucun résultat n'est trouvé.
     if not all_invoices:
         return []
 
-    # Retourner les résultats formatés
+    # Retourner les résultats formatés.
     return [
         {
             "id": invoice.id,
@@ -84,21 +84,20 @@ def get_invoices_pages(
 @router.get("/invoices/count", response_model=dict)
 def get_invoices_count(query: Optional[str] = "", db: Session = Depends(get_db)):
     try:
-        # Construire la requête principale
+        # Construire la requête principale.
         base_query = db.query(InvoiceModel.id)
 
-        # Appliquer les filtres si la query est présente
+        # Appliquer les filtres si la query est présente.
         if query:
             base_query = base_query.filter(
                 (InvoiceModel.status.ilike(f"%{query}%")) |
                 (cast(InvoiceModel.amount, String).ilike(f"%{query}%"))
             )
         
-        # Retourner le nombre total
+        # Retourner le nombre total.
         return {"count": base_query.count()}
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal Server Error")
-
 
 # Récupère les montants des factures payées et en attente.
 @router.get("/invoices/status", response_model=dict)
@@ -137,7 +136,7 @@ def get_latest_invoices(db: Session = Depends(get_db)):
             "image_url": customer.image_url,
             "date": invoice.date.isoformat(),
         }
-        for invoice, customer in latest_invoices  # Décomposition du tuple
+        for invoice, customer in latest_invoices  # Décomposition du tuple.
     ]
 
 # Récupère une facture spécifique par son identifiant.
@@ -149,9 +148,14 @@ def get_one_invoice(invoice_id: UUID, db: Session = Depends(get_db)):
     return invoice
 
 # Crée une nouvelle facture.
-@router.post("/invoices/", response_model=Invoice)
+@router.post("/invoices", response_model=Invoice)
 def create_invoice(invoice: InvoiceCreate, db: Session = Depends(get_db)):
-    return crud_invoice.create_invoice(db=db, invoice=invoice)
+    try:
+        # Appeler la fonction CRUD
+        return crud_invoice.create_invoice(db=db, invoice=invoice)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error.")
 
 # Met à jour une facture existante.
 @router.patch("/invoices/{invoice_id}", response_model=Invoice)
