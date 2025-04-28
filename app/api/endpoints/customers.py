@@ -92,10 +92,13 @@ def get_customer_count(query: Optional[str] = "", db: Session = Depends(get_db))
 # Récupère un client spécifique par son identifiant.
 @router.get("/customers/{customer_id}", response_model=Customer)
 def get_one_customer(customer_id: UUID, db: Session = Depends(get_db)):
-    customer = db.query(CustomerModel).filter(CustomerModel.id == customer_id).first()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
-    return customer
+    try:
+        customer = db.query(CustomerModel).filter(CustomerModel.id == customer_id).first()
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
+        return customer
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 # Crée un nouveau client.
 @router.post("/customers/", response_model=Customer)

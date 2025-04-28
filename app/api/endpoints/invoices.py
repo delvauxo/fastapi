@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, String, cast
 from sqlalchemy.orm import Session
 from typing import Optional
+from uuid import UUID 
 
 from app.core.database import get_db
 from app.models.invoice import Invoice as InvoiceModel
@@ -141,7 +142,7 @@ def get_latest_invoices(db: Session = Depends(get_db)):
 
 # Récupère une facture spécifique par son identifiant.
 @router.get("/invoices/{invoice_id}", response_model=Invoice)
-def get_one_invoice(invoice_id: str, db: Session = Depends(get_db)):
+def get_one_invoice(invoice_id: UUID, db: Session = Depends(get_db)):
     invoice = db.query(InvoiceModel).filter(InvoiceModel.id == invoice_id).first()
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
