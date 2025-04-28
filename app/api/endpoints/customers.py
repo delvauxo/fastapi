@@ -1,67 +1,67 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func, case, cast, String, or_
+from sqlalchemy import func, String
 from typing import List, Optional
 from uuid import UUID 
 
 from app.core.database import get_db
 from app.models.customer import Customer as CustomerModel
-from app.models.invoice import Invoice
-from app.schemas.customer import CustomerCreate, CustomerUpdate, CustomerAggregated, Customer
+from app.models.invoice import Invoice as InvoiceModel
+from app.schemas.customer import CustomerCreate, CustomerUpdate, Customer
 from app.crud import customer as crud_customer
 
 router = APIRouter()
 
 ITEMS_PER_PAGE = 6
 
-@router.get("/customers/", response_model=List[CustomerAggregated])
-def get_customers(query: Optional[str] = "", page: int = 1, db: Session = Depends(get_db)):
-    # On construit la requête avec agrégation et GROUP BY sur tous les champs non agrégés
-    q = db.query(
-        CustomerModel.id.label("id"),
-        CustomerModel.name.label("name"),
-        CustomerModel.email.label("email"),
-        CustomerModel.image_url.label("image_url"),
-        func.count(Invoice.id).label("total_invoices"),
-        func.coalesce(func.sum(case((Invoice.status == 'pending', Invoice.amount), else_=0)), 0).label("total_pending"),
-        func.coalesce(func.sum(case((Invoice.status == 'paid', Invoice.amount), else_=0)), 0).label("total_paid")
-    ).outerjoin(Invoice, Invoice.customer_id == CustomerModel.id
-    ).group_by(
+@router.get("/customers", response_model=list)
+def get_customers(
+    query: str = Query("", alias="query"),
+    page: int = Query(1, alias="page"),
+    db: Session = Depends(get_db),
+):
+    # Calcul de l'offset pour la pagination
+    offset = (page - 1) * ITEMS_PER_PAGE
+
+    # Construire la requête principale avec les filtres
+    customers_query = db.query(
         CustomerModel.id,
         CustomerModel.name,
         CustomerModel.email,
-        CustomerModel.image_url
-    )
-    
-    if query:
-        # On construit une condition qui vérifie le nom, l'email et les agrégats convertis en chaîne
-        filter_condition = or_(
-            CustomerModel.name.ilike(f"%{query}%"),
-            CustomerModel.email.ilike(f"%{query}%"),
-            cast(func.count(Invoice.id), String).ilike(f"%{query}%"),
-            cast(func.coalesce(func.sum(case((Invoice.status == 'pending', Invoice.amount), else_=0)), 0), String).ilike(f"%{query}%"),
-            cast(func.coalesce(func.sum(case((Invoice.status == 'paid', Invoice.amount), else_=0)), 0), String).ilike(f"%{query}%")
-        )
-        # Comme les agrégats sont dans le GROUP BY, on applique le filtre avec HAVING
-        q = q.having(filter_condition)
-    
-    q = q.offset((page - 1) * ITEMS_PER_PAGE).limit(ITEMS_PER_PAGE)
-    
-    results = q.all()
-    
-    aggregated_customers = []
-    # Chaque résultat est une ligne contenant les colonnes demandées
-    for row in results:
-        aggregated_customers.append({
-            "id": row.id,
-            "name": row.name,
-            "email": row.email,
-            "image_url": row.image_url,
-            "total_invoices": row.total_invoices,
-            "total_pending": row.total_pending,
-            "total_paid": row.total_paid,
-        })
-    return aggregated_customers
+        CustomerModel.image_url,
+        func.count(InvoiceModel.id).label("total_invoices"),
+        func.coalesce(func.sum(InvoiceModel.amount).filter(InvoiceModel.status == "pending"), 0).label("total_pending"),
+        func.coalesce(func.sum(InvoiceModel.amount).filter(InvoiceModel.status == "paid"), 0).label("total_paid"),
+    ).outerjoin(InvoiceModel, InvoiceModel.customer_id == CustomerModel.id)\
+     .group_by(CustomerModel.id, CustomerModel.name, CustomerModel.email, CustomerModel.image_url)\
+     .filter(
+         (CustomerModel.name.ilike(f"%{query}%")) |
+         (CustomerModel.email.ilike(f"%{query}%"))
+     )\
+     .order_by(CustomerModel.name.asc())\
+     .offset(offset)\
+     .limit(ITEMS_PER_PAGE)
+
+    # Exécuter la requête
+    all_customers = customers_query.all()
+
+    # Vérifier si aucun client n'est trouvé
+    if not all_customers:
+        return []
+
+    # Retourner les résultats
+    return [
+        {
+            "id": customer.id,
+            "name": customer.name,
+            "email": customer.email,
+            "image_url": customer.image_url,
+            "total_invoices": customer.total_invoices,
+            "total_pending": customer.total_pending,
+            "total_paid": customer.total_paid,
+        }
+        for customer in all_customers
+    ]
 
 # Récupère la liste de tous les clients.
 @router.get("/customers/all", response_model=List[Customer])
