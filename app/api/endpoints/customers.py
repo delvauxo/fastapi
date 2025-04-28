@@ -72,30 +72,22 @@ def get_all_customers(db: Session = Depends(get_db)):
 # Récupère le nombre total de clients.
 @router.get("/customers/count", response_model=dict)
 def get_customer_count(query: Optional[str] = "", db: Session = Depends(get_db)):
-    q = db.query(
-        CustomerModel.id
-    ).outerjoin(InvoiceModel, InvoiceModel.customer_id == CustomerModel.id
-    ).group_by(
-        CustomerModel.id,
-        CustomerModel.name,
-        CustomerModel.email,
-        CustomerModel.image_url
-    )
-    
-    if query:
-        filter_condition = or_(
-            CustomerModel.name.ilike(f"%{query}%"),
-            CustomerModel.email.ilike(f"%{query}%"),
-            cast(func.count(InvoiceModel.id), String).ilike(f"%{query}%"),
-            cast(func.coalesce(func.sum(case((InvoiceModel.status == 'pending', InvoiceModel.amount), else_=0)), 0), String).ilike(f"%{query}%"),
-            cast(func.coalesce(func.sum(case((InvoiceModel.status == 'paid', InvoiceModel.amount), else_=0)), 0), String).ilike(f"%{query}%")
-        )
-        q = q.having(filter_condition)
-    
-    # Le count() ici retourne le nombre de groupes (donc de clients)
-    count = q.count()
-    return {"count": count}
+    try:
+        # Construire la requête principale
+        base_query = db.query(CustomerModel.id).distinct()
 
+        # Appliquer les filtres si la query est présente
+        if query:
+            base_query = base_query.filter(
+                (CustomerModel.name.ilike(f"%{query}%")) |
+                (CustomerModel.email.ilike(f"%{query}%"))
+            )
+        
+        # Compter le nombre total de clients correspondants
+        count = base_query.count()
+        return {"count": count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 # Récupère un client spécifique par son identifiant.
 @router.get("/customers/{customer_id}", response_model=Customer)

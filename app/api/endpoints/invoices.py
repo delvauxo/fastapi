@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, String
+from sqlalchemy import func, String, cast
 from sqlalchemy.orm import Session
+from typing import Optional
+
 from app.core.database import get_db
 from app.models.invoice import Invoice as InvoiceModel
 from app.models.customer import Customer as CustomerModel
@@ -79,11 +81,23 @@ def get_invoices_pages(
 
 # Récupère le nombre total de factures.
 @router.get("/invoices/count", response_model=dict)
-def get_invoices_count(db: Session = Depends(get_db)):
+def get_invoices_count(query: Optional[str] = "", db: Session = Depends(get_db)):
     try:
-        return {"count": db.query(InvoiceModel).count()}
+        # Construire la requête principale
+        base_query = db.query(InvoiceModel.id)
+
+        # Appliquer les filtres si la query est présente
+        if query:
+            base_query = base_query.filter(
+                (InvoiceModel.status.ilike(f"%{query}%")) |
+                (cast(InvoiceModel.amount, String).ilike(f"%{query}%"))
+            )
+        
+        # Retourner le nombre total
+        return {"count": base_query.count()}
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal Server Error")
+
 
 # Récupère les montants des factures payées et en attente.
 @router.get("/invoices/status", response_model=dict)
