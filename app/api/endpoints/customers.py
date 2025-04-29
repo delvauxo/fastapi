@@ -12,8 +12,8 @@ from app.crud import customer as crud_customer
 
 router = APIRouter()
 
-# Doit correspondre au nombre d'item par page côté front pour ne pas créer de désalignement.
-ITEMS_PER_PAGE = 6
+# Permet de garder un fallback côté backend.
+ITEMS_PER_PAGE = 10
 
 # Récupère tous les clients.
 @router.get("/customers", response_model=list)
@@ -22,7 +22,7 @@ def get_customers(
     page: int = Query(1, alias="page"),
     db: Session = Depends(get_db),
     limit: int = Query(ITEMS_PER_PAGE, alias="limit", le=50)
-):
+):  
     # Calcul de l'offset pour la pagination.
     offset = (page - 1) * limit
 
@@ -70,7 +70,8 @@ def get_customers(
 @router.get("/customers/pages", response_model=CustomerPagesResponse)
 def get_customers_pages(
     db: Session = Depends(get_db),
-    query: str = Query("", alias="query")
+    query: str = Query("", alias="query"),
+    limit: int = Query(ITEMS_PER_PAGE, alias="limit", le=50)
 ):
     total_items = db.query(CustomerModel)\
         .filter(
@@ -78,7 +79,7 @@ def get_customers_pages(
             (CustomerModel.email.ilike(f"%{query}%"))
         ).count()
 
-    total_pages = (total_items + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
+    total_pages = (total_items + limit - 1) // limit
 
     return CustomerPagesResponse(totalPages=total_pages)
 

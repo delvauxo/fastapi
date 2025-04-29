@@ -12,8 +12,8 @@ from app.crud import invoice as crud_invoice
 
 router = APIRouter()
 
-# Doit correspondre au nombre d'item par page côté front pour ne pas créer de désalignement.
-ITEMS_PER_PAGE = 6 
+# Permet de garder un fallback côté backend.
+ITEMS_PER_PAGE = 10
 
 # Récupère toutes les factures.
 @router.get("/invoices", response_model=list[InvoiceLatest])
