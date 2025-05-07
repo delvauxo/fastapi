@@ -13,14 +13,15 @@ from app.crud import customer as crud_customer
 router = APIRouter()
 
 # Permet de garder un fallback côté backend.
-ITEMS_PER_PAGE = 10
+# Valeur utilisée pour les call api 'brut' (Insomnia).
+ITEMS_PER_PAGE = 10 
 
 # Récupère tous les clients.
 @router.get("/customers", response_model=list)
 def get_customers(
+    db: Session = Depends(get_db),
     query: str = Query("", alias="query"),
     page: int = Query(1, alias="page"),
-    db: Session = Depends(get_db),
     limit: int = Query(ITEMS_PER_PAGE, alias="limit", le=50)
 ):  
     # Calcul de l'offset pour la pagination.

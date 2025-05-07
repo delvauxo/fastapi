@@ -13,6 +13,7 @@ from app.crud import invoice as crud_invoice
 router = APIRouter()
 
 # Permet de garder un fallback côté backend.
+# Valeur utilisée pour les call api 'brut' (Insomnia).
 ITEMS_PER_PAGE = 10
 
 # Récupère toutes les factures.
@@ -36,13 +37,13 @@ def get_all_invoices(
             (func.cast(InvoiceModel.amount, String).ilike(f"%{query}%"))
         )\
         .order_by(InvoiceModel.date.desc(), InvoiceModel.id.desc())\
-        .limit(limit)\
-        .offset(offset)
+        .offset(offset)\
+        .limit(limit)
 
     # Récupérer les résultats.
     all_invoices = invoices_query.all()
 
-    # Vérifier si aucun résultat n'est trouvé.
+    # Vérifier si aucune facture n'est trouvée.
     if not all_invoices:
         return []
 
@@ -65,7 +66,8 @@ def get_all_invoices(
 @router.get("/invoices/pages", response_model=InvoicePagesResponse)
 def get_invoices_pages(
     db: Session = Depends(get_db),
-    query: str = Query("", alias="query")
+    query: str = Query("", alias="query"),
+    limit: int = Query(ITEMS_PER_PAGE, alias="limit", le=50)
 ):
     total_items = db.query(InvoiceModel)\
         .join(CustomerModel, InvoiceModel.customer_id == CustomerModel.id)\
@@ -76,7 +78,7 @@ def get_invoices_pages(
             (func.cast(InvoiceModel.amount, String).ilike(f"%{query}%"))
         ).count()
 
-    total_pages = (total_items + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
+    total_pages = (total_items + limit - 1) // limit
 
     return InvoicePagesResponse(totalPages=total_pages)
 
